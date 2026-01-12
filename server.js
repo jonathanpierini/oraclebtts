@@ -1,27 +1,44 @@
 const express = require("express");
+const Stripe = require("stripe");
 
 const app = express();
 
-// 1) Health check
-app.get("/", (req, res) => {
-  res.send("Server attivo 🚀");
-});
+// ✅ Stripe client (serve la secret key)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// 2) Webhook Stripe (per ora solo test: log + 200)
+// ✅ Webhook: qui serve RAW body (non json)
 app.post(
   "/stripe-webhook",
   express.raw({ type: "application/json" }),
   (req, res) => {
-    console.log("✅ Webhook ricevuto");
-    console.log("Headers stripe-signature:", req.headers["stripe-signature"]);
-    console.log("Body (raw):", req.body?.toString?.("utf8"));
+    const sig = req.headers["stripe-signature"];
 
-    // Stripe vuole sempre una risposta 2xx veloce
-    res.status(200).send("ok");
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.log("❌ Webhook signature error:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // ✅ Evento ricevuto
+    console.log("✅ Stripe event:", event.type);
+
+    // TODO: qui dopo ci mettiamo la logica (es: attivare abbonamento)
+    return res.json({ received: true });
   }
 );
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+// Per le altre route puoi usare JSON normalmente
+app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.send("Server attivo ✅");
 });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Server running on port", PORT));
