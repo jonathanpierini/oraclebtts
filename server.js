@@ -4,7 +4,7 @@ const Stripe = require("stripe");
 const app = express();
 
 // ✅ Stripe client (serve la secret key)
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // ✅ Webhook: qui serve RAW body (non json)
 app.post(
